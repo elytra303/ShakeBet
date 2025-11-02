@@ -6,43 +6,48 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-TOKEN = "8387271416:AAEdOB6BZv1AJDVU88-R9oL3E8OVCdbo4hY"
+TOKEN = "ТВОЙ_ТОКЕН_БОТА"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 DB_FILE = "casino.db"
-codes_db = "codes.db"
+CODES_DB = "codes.db"
 
 # --- Главное меню ---
-def main_menu(balance):
+def main_menu(balance: float):
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(f"Баланс: {balance}💎")],
-            [KeyboardButton("Вывод 💎"), KeyboardButton("Пополнить 💸")],
-            [KeyboardButton("Игра 💰")]
+            [KeyboardButton(text=f"Баланс: {balance}💎")],
+            [KeyboardButton(text="Вывод 💎"), KeyboardButton(text="Пополнить 💸")],
+            [KeyboardButton(text="Игра 💰")]
         ],
         resize_keyboard=True
     )
 
 withdraw_menu = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton("Вывод"), KeyboardButton("Отмена")]],
-    resize_keyboard=True
-)
-topup_menu = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton("Пополнить"), KeyboardButton("Отмена")]],
-    resize_keyboard=True
-)
-game_action_menu = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton("Далее"), KeyboardButton("Отмена")]],
-    resize_keyboard=True
-)
-color_menu = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton("⚫ Черный"), KeyboardButton("⚪ Белый")],
-              [KeyboardButton("Отмена")]],
+    keyboard=[[KeyboardButton(text="Вывод"), KeyboardButton(text="Отмена")]],
     resize_keyboard=True
 )
 
-# --- Инициализация баз ---
+topup_menu = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="Пополнить"), KeyboardButton(text="Отмена")]],
+    resize_keyboard=True
+)
+
+game_action_menu = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="Далее"), KeyboardButton(text="Отмена")]],
+    resize_keyboard=True
+)
+
+color_menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="⚫ Черный"), KeyboardButton(text="⚪ Белый")],
+        [KeyboardButton(text="Отмена")]
+    ],
+    resize_keyboard=True
+)
+
+# --- Инициализация базы ---
 async def init_db():
     async with aiosqlite.connect(DB_FILE) as db:
         await db.execute("""
@@ -52,7 +57,7 @@ async def init_db():
         )
         """)
         await db.commit()
-    async with aiosqlite.connect(codes_db) as db:
+    async with aiosqlite.connect(CODES_DB) as db:
         await db.execute("""
         CREATE TABLE IF NOT EXISTS codes (
             code TEXT PRIMARY KEY,
@@ -98,7 +103,7 @@ async def topup(msg: types.Message):
 
 @dp.message(lambda m: m.text == "Игра 💰")
 async def start_game(msg: types.Message):
-    await msg.answer("Введите ставку для игры:", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("Отмена")))
+    await msg.answer("Введите ставку для игры:", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton(text="Отмена")))
 
 # --- Вывод / Пополнение ---
 @dp.message(lambda m: m.text in ["Вывод", "Пополнить"])
@@ -118,10 +123,10 @@ async def input_bet(msg: types.Message):
     bet = float(msg.text)
     balance = await get_balance(msg.from_user.id)
     if bet <= 0:
-        await msg.answer("Ставка должна быть больше 0.", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("Отмена")))
+        await msg.answer("Ставка должна быть больше 0.", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton(text="Отмена")))
         return
     if bet > balance:
-        await msg.answer(f"Недостаточно средств! Баланс: {balance}💎", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("Отмена")))
+        await msg.answer(f"Недостаточно средств! Баланс: {balance}💎", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton(text="Отмена")))
         return
     user_bets[msg.from_user.id] = bet
     await msg.answer(f"Ставка: {bet}$", reply_markup=game_action_menu)
@@ -129,7 +134,7 @@ async def input_bet(msg: types.Message):
 @dp.message(lambda m: m.text == "Далее")
 async def play_game(msg: types.Message):
     if msg.from_user.id not in user_bets:
-        await msg.answer("Сначала введите ставку!", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("Отмена")))
+        await msg.answer("Сначала введите ставку!", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton(text="Отмена")))
         return
     bet = user_bets[msg.from_user.id]
     await change_balance(msg.from_user.id, -bet)
@@ -138,12 +143,12 @@ async def play_game(msg: types.Message):
 @dp.message(lambda m: m.text in ["⚫ Черный", "⚪ Белый"])
 async def choose_color(msg: types.Message):
     if msg.from_user.id not in user_bets:
-        await msg.answer("Сначала введите ставку!", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("Отмена")))
+        await msg.answer("Сначала введите ставку!", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton(text="Отмена")))
         return
     bet = user_bets[msg.from_user.id]
     choice = "черный" if "Черный" in msg.text else "белый"
 
-    # Анимация в одном сообщении
+    # Анимация
     anim_msg = await msg.answer("🎲 Крутим...")
     for frame in ["🎲 Крутим.  ", "🎲 Крутим.. ", "🎲 Крутим..."]:
         await asyncio.sleep(0.7)
@@ -161,10 +166,9 @@ async def choose_color(msg: types.Message):
     balance = await get_balance(msg.from_user.id)
     await msg.answer("Возврат в главное меню.", reply_markup=main_menu(balance))
 
-# --- /code и /promo ---
+# --- /code (только для тебя) ---
 @dp.message(Command("code"))
 async def generate_code(msg: types.Message):
-    # Только для тебя
     if msg.from_user.username != "WWonderFFull":
         await msg.answer("❌ У вас нет прав для создания кода!")
         return
@@ -174,11 +178,12 @@ async def generate_code(msg: types.Message):
         await msg.answer("Используй: /code <сумма>")
         return
     code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
-    async with aiosqlite.connect(codes_db) as db:
+    async with aiosqlite.connect(CODES_DB) as db:
         await db.execute("INSERT INTO codes (code, value) VALUES (?, ?)", (code, value))
         await db.commit()
     await msg.answer(f"Сгенерирован код: {code} на {value}$")
 
+# --- /promo ---
 @dp.message(Command("promo"))
 async def apply_code(msg: types.Message):
     try:
@@ -186,7 +191,7 @@ async def apply_code(msg: types.Message):
     except:
         await msg.answer("Используй: /promo <код>")
         return
-    async with aiosqlite.connect(codes_db) as db:
+    async with aiosqlite.connect(CODES_DB) as db:
         cursor = await db.execute("SELECT value FROM codes WHERE code = ?", (user_code,))
         row = await cursor.fetchone()
         if row:
